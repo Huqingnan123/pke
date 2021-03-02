@@ -27,7 +27,19 @@ static __noinline void __up(semaphore_t *sem, uint64_t wait_state) {
 }
 
 static __noinline uint64_t __down(semaphore_t *sem, uint64_t wait_state) {
-    panic("finish your code in __down\n");
+    //panic("finish your code in __down\n");
+    //return 0;
+
+    //if value > 0, minus 1 directly
+    if(try_down(sem) == 1)
+        return 0;
+    //or add currentproc to wait_queue
+    wait_t wait;
+    wait_current_set(&(sem->wait_queue), &wait, wait_state);
+    schedule();
+    //after schecule, judge wait_state == WT_KSEM
+    if((wait.proc)->wait_state == WT_KSEM)
+        wakeup_wait(&(sem->wait_queue), &wait, wait_state, 1);
     return 0;
 }
 

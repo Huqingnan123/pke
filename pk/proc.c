@@ -38,7 +38,7 @@ hash32(uint32_t val, unsigned int bits) {
 
 // has list for process set based on pid
 static list_entry_t hash_list[HASH_LIST_SIZE];
-
+ 
 // idle proc
 struct proc_struct *idleproc = NULL;
 // init proc
@@ -55,11 +55,20 @@ void switch_to(struct context *from, struct context *to);
 static spinlock_t vm_lock = SPINLOCK_INIT;
 
 // Create a user page table for a given process,
-// with no user memory, but with  trap_entry and user stack.
+// with no user memory, but with trap_entry and user stack.
 pte_t*  proc_pagetable()
 {
-    panic("finish your code in proc_pagetable\n");
-    return 0;
+    //panic("finish your code in proc_pagetable\n");
+    //return 0;
+    extern uintptr_t first_free_paddr;
+    pte_t* pagetable = (pte_t *)__page_alloc();
+    pte_t* stackPage = (pte_t *)__page_alloc();
+    //在所有进程的用户页表中映射->由用户态进入内核态的代码
+    __map_kernel_range_pgtbl(DRAM_BASE, DRAM_BASE, first_free_paddr - DRAM_BASE, PROT_READ|PROT_EXEC, (uintptr_t)pagetable);
+    //每个用户页表中都应该维护自己的用户堆栈，需要对虚拟地址current.stack_top-RISCV_PGSIZE进行映射
+    mappages(pagetable, current.stack_top - RISCV_PGSIZE, RISCV_PGSIZE, (uint64_t)stackPage, prot_to_type(PROT_READ|PROT_EXEC|PROT_WRITE, 1));
+    return pagetable;
+
 }
 
 // alloc_proc - alloc a proc_struct and init all fields of proc_struct
@@ -446,7 +455,36 @@ remove_links(struct proc_struct *proc) {
 // NOTE: only after do_wait function, all resources of the child proces are free.
 int
 do_wait(int pid, int *code_store) {
-    panic("finish your code in  do_wait\n");
+    //panic("finish your code in  do_wait\n");
+    //return 0;
+    struct proc_struct* proc;
+    bool intr_flag;
+    while(1) 
+    { 
+        if(pid != 0) 
+        {
+            proc = find_proc(pid);
+            if(proc->state == PROC_ZOMBIE)
+                break;
+        }
+        else 
+        {
+            for(proc = currentproc->cptr; proc != NULL; proc = proc->cptr) 
+            {
+                if(proc->state == PROC_ZOMBIE)
+                    break;
+            }
+        }
+        currentproc->state = PROC_SLEEPING;
+        currentproc->wait_state = WT_CHILD;
+        schedule();
+    }
+    //kill child-proc and free resource
+    local_intr_save(intr_flag);
+    {
+        unhash_proc(proc);
+    }
+    local_intr_restore(intr_flag);
     return 0;
 }
 

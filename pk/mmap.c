@@ -640,8 +640,53 @@ mappages(pte_t* pagetable, uint64_t va, uint64_t size, uint64_t pa, int perm)
 int
 vmcopy(pte_t* old, pte_t* new)
 {
-  panic("finish your code in vmcopy\n");
+  // panic("finish your code in vmcopy\n");
+  // return 0;
+
+  // 1、method-1
+  //return uvmcopy(old, new);
+
+  // 2、method-2
+  pte_t *pte;
+  pte_t *pte_new;
+  uint64_t pa, i;
+  int flags;
+  uintptr_t mem;
+  for(i = 0; i < current.mmap_max; i += RISCV_PGSIZE)
+  {
+    //case1 (this vaddr doesn't correspond pte)
+    if((pte = __walk_internal_user(old, i, 0)) == 0)
+      continue;
+    //case2 (this vaddr correspond pte and PTE_V == 1)
+    else if((*pte & PTE_V) == 1)
+    {
+      pa = PTE2PA(*pte);
+      flags = PTE_FLAGS(*pte);
+      if((mem =page2pa((void*)pmm_manager->alloc_pages(1))) == 0)
+        goto err; 
+      memcpy((char *)mem, (char*)pa, RISCV_PGSIZE);
+      uintptr_t ppn =page2ppn(pa2page(mem));
+      if(mappages(new, i, RISCV_PGSIZE, (uint64_t)mem, flags) != 0)
+        goto err;
+    }
+    //case3 (this vaddr correspond pte and PTE_V == 0)
+    else if((*pte & PTE_V) == 0)
+    {
+      pte_new = __walk_internal_user(new, i, 1);
+      *pte_new = *pte;
+    }
+    //case4 (this vaddr corresponds user_Stack, copy Stack)
+    else if(i == current.stack_top - RISCV_PGSIZE)
+    {
+      pa = PTE2PA(*pte);
+      pte_new = __walk_internal_user(new, i, 1);
+      uint64_t pa_new = PTE2PA(*pte_new);
+      memcpy((char *)pa_new, (char*)pa, RISCV_PGSIZE);
+    }
+  }
   return 0;
+err:
+  return -1;
 }
 
 int
@@ -674,7 +719,7 @@ uvmcopy(pte_t* old, pte_t* new)
   }
   return 0;
 
- err:
+err:
   return -1;
 }
 

@@ -9,8 +9,8 @@
 	typedef int64_t sint_t;
 	typedef uint64_t uint_t;
 #else
-	typedet int32_t sint_t;
-	typedet uint32_t uint_t;
+	typedef int32_t sint_t;
+	typedef uint32_t uint_t;
 #endif
 
 typedef uint_t size_t;
